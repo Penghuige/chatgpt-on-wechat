@@ -162,6 +162,12 @@ available_setting = {
     "linkai_api_key": "",
     "linkai_app_code": "",
     "linkai_api_base": "https://api.link-ai.chat",  # linkAI服务地址，若国内无法访问或延迟较高可改为 https://api.link-ai.tech
+
+    # 邀请码相关配置
+    "accept_friend": False,     # 控制是否自动通过好友，受friend_password值影响，为真此项失效
+    "friend_password": True,    #  控制是否根据邀请码自动通过好友，不受accept_friend值影响
+    "hours_extension": 24,       #  控制授权裂变插件的邀请人奖励时间，单位小时
+
 }
 
 
