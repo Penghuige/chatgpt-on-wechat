@@ -19,10 +19,10 @@ from plugins import *
 @plugins.register(
     name="VerifyTurbo",
     desire_priority=100,
-    hidden=True,
+    hidden=False,
     desc="通过激活码与邀请码来获得机器人的使用权限。",
     version="1.0",
-    author="lanvent",
+    author="Penghuige",
 )
 class VerifyTurbo(Plugin):
     def __init__(self):
@@ -30,15 +30,50 @@ class VerifyTurbo(Plugin):
         try:
             # load config
             conf = super().load_config()
-            curdir = os.path.dirname(__file__)
             if not conf:
                 # 配置不存在则报错
                 raise Exception("config.json not found")            # 创建一个空数组来存储邀请码
-            self.invitation_code = {}
+            self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
+            # 这个字典要存储邀请码和好友ID还有邀请码的时间
+            self.invitation_codes = {}
         except Exception as e:
             logger.warn("[VerifyTurbo] init failed, ignore or see")
             raise e
     
+    def on_handle_context(self, e_context: EventContext):
+        # 根据输入判断使用功能
+        if e_context["context"].type != ContextType.TEXT:
+            return
+        content = e_context["context"].content
+        if content.startswith("激活码"):
+            # 发送激活码 这里要辨别是不是正确的，不是就返回错误
+            # verify_invitation
+            reply = Reply()
+            reply.type = ReplyType.TEXT
+            reply.content = self.verify_invitation(content)
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+        elif content.startswith("邀请码"):
+            reply = Reply()
+            reply.type = ReplyType.TEXT
+            reply.content = self.verify_invitation(content)
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+        elif content == "申请邀请码":
+            self.send_invitation(e_context["context"].sender_id)
+            reply = Reply()
+            reply.type = ReplyType.TEXT
+            reply.content = "邀请码已发送，请查收。"
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+        else:
+            reply = Reply()
+            reply.type = ReplyType.TEXT
+            reply.content = "请发送“激活码”或“邀请码”来获取机器人的使用权限。"
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+
     def generate_invitation_code(self):
         """生成随机的邀请码"""
         # 这里使用简单的随机生成方式，你可以根据需要改进
@@ -47,7 +82,9 @@ class VerifyTurbo(Plugin):
     def send_invitation(self, friend_id):
         """发送邀请码给好友"""
         invitation_code = self.generate_invitation_code()
-        self.invitation_codes[invitation_code] = friend_id  # 存储邀请码和好友ID
+        # 存储邀请码和好友ID还有时间,但一时间可能有多个,这个数组要存很多个邀请码
+        invitation_data = {"friend_id": friend_id, "time": time.time()}
+        self.invitation_codes[invitation_code] = invitation_data
         invitation_message = f"欢迎加入我们！请使用以下邀请码进行验证：{invitation_code}"
     
     def verify_invitation(self, received_code):
@@ -59,20 +96,19 @@ class VerifyTurbo(Plugin):
             activation_code = match.group(1)
             # 兑换后删除邀请码
             self.invitation_code.pop(activation_code, None)
-            if activation_code in self.invitation_codes:
-                invitation_data = self.invitation_codes[activation_code]
-                current_time = time.time()
-                # 计算剩余时限（假设时限为1小时）
-                remaining_time = 3600 - (current_time - invitation_data['timestamp'])
-                return f"激活码 {activation_code} 剩余有效时间：{int(remaining_time // 60)} 分钟 {int(remaining_time % 60)} 秒"
-            else:
-                return "无效的激活码"
+            # 判断是否过期 这里用到的invitation_data是一个字典，存储了邀请码和时间
+            if time.time() - self.invitation_codes[received_code] > 86400:
+                return False
+            return True
         else:
-            return "格式错误"
+            return False
+        
+    def display_all_invitation_codes(self):
+        """展示所有邀请码及其所有信息"""
+        return json.dumps(self.invitation_codes, indent=4, ensure_ascii=False)
         
     def get_help_text(self, **kwargs):
         help_text = (
             "通过激活码与邀请码来获得机器人的使用权限。"
         )
         return help_text
-        
