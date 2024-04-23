@@ -1,0 +1,6 @@
+{
+    # 邀请码相关配置
+    "accept_friend": False,     # 控制是否自动通过好友，受friend_password值影响，为真此项失效
+    "friend_password": True,    #  控制是否根据邀请码自动通过好友，不受accept_friend值影响
+    "hours_extension": 24,       #  控制授权裂变插件的邀请人奖励时间，单位小时
+}
